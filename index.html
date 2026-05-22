@@ -27,7 +27,7 @@
     /* ── Bouton de sélection de nom ── */
     .name-btn { padding: 10px; border-radius: 8px; border: 1.5px solid #e0e0e0; background: white; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; }
     .name-btn:hover { background: #f4f6fb; }
-    .name-btn.active { border-width: 2px; } /* bordure plus épaisse quand sélectionné */
+    .name-btn.active { border-width: 2px; font-weight: bold; }
 
     /* ── Petit cercle de couleur à côté du nom ── */
     .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
@@ -92,58 +92,45 @@
 
 <div class="container">
 
-  <!-- Onglets de navigation -->
   <div class="tab-bar">
     <button class="tab active" onclick="showTab('entry')" id="tab-entry">Mon horaire</button>
     <button class="tab" onclick="showTab('view')" id="tab-view">Vue collective</button>
   </div>
 
-  <!-- ── PANNEAU : Mon horaire ── -->
   <div id="panel-entry">
 
-    <!-- Sélection du membre -->
     <div class="card">
       <p class="section-title">Qui es-tu ?</p>
       <div class="name-grid" id="name-grid"></div>
-      <!-- Les boutons de noms sont générés dynamiquement par initNames() -->
     </div>
 
-    <!-- Grille de saisie des quarts (cachée jusqu'à ce qu'un nom soit choisi) -->
     <div class="card" id="schedule-card" style="display:none">
       <p class="section-title" id="schedule-title">Mes quarts</p>
 
-      <!-- Dropdown de sélection de semaine -->
       <div class="week-selector">
         <label>Semaine :</label>
-        <select id="week-select" onchange="renderDays()"></select>
-        <!-- onchange : recharge les jours à chaque changement de semaine -->
+        <select id="week-select"></select>
       </div>
 
-      <!-- Les lignes de jours sont générées dynamiquement par renderDays() -->
       <div id="days-container"></div>
 
-      <button class="save-btn" onclick="saveShifts()">✓ Sauvegarder</button>
+      <button class="save-btn" id="btn-save-shifts">✓ Sauvegarder</button>
       <p class="save-msg" id="save-msg">Sauvegardé !</p>
     </div>
   </div>
 
-  <!-- ── PANNEAU : Vue collective ── -->
   <div id="panel-view" style="display:none">
     <div class="card">
 
-      <!-- Dropdown de semaine pour la vue collective -->
       <div class="week-selector">
         <label>Semaine :</label>
-        <select id="week-select-view" onchange="renderView()"></select>
+        <select id="week-select-view"></select>
       </div>
 
-      <!-- Légende des couleurs par membre -->
       <div class="legend" id="legend"></div>
 
-      <!-- Timeline générée dynamiquement par renderView() -->
       <div id="collective-view"></div>
 
-      <!-- Horodatage de la dernière sync Firebase -->
       <p class="status" id="sync-status">Chargement...</p>
     </div>
   </div>
@@ -152,11 +139,14 @@
 
 
 <script type="module">
-  // ── Imports Firebase (chargés depuis le CDN Google) ──
+  // ==========================================
+  // 1. CONFIGURATION ET INITIALISATION
+  // ==========================================
+
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  // ── Configuration Firebase ──
+  // Configuration de ta base de données Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyBmqBVV7NG452qr0UxsDQIv0gBXXqHgDsE",
     authDomain: "horairegoonini.firebaseapp.com",
@@ -167,11 +157,10 @@
     measurementId: "G-51FTR7YXEE"
   };
 
-  // ── Initialisation de Firebase et Firestore ──
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // ── Liste des membres du groupe ──
+  // Configuration des membres de ton groupe et leurs couleurs respectives
   const MEMBERS = [
     { name: "Alex",   color: "#3F9120" },
     { name: "PO",     color: "#871F16" },
@@ -181,38 +170,48 @@
     { name: "Fyl",    color: "#564304" },
   ];
 
-  // ── Noms des jours de la semaine ──
   const DAYS = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 
-  // ── Génération de toutes les semaines entre le 17 mai et le 7 sept 2026 ──
+  // Variables de mémoire de l'application (État global)
+  let currentUser = null; // Contiendra le nom du membre sélectionné (ex: "Alex")
+  let allData = {};       // contiendra TOUT Firestore structuré ainsi : { "Nom": { "IndexSemaine": { "Date": {start, end} } } }
+
+
+  // ==========================================
+  // 2. FONCTIONS DE GÉNÉRATION DES SEMAINES
+  // ==========================================
+
+  /**
+   * Génère dynamiquement le tableau de toutes les semaines du 17 mai au 7 septembre 2026.
+   * Calcule automatiquement la date de début et de fin de chaque bloc de 7 jours.
+   */
   function getWeeks() {
     const weeks = [];
-    let d = new Date(2026, 4, 17);
-    const end = new Date(2026, 8, 7);
+    let d = new Date(2026, 4, 17); // Mois commençant à 0 en JS (4 = Mai)
+    const end = new Date(2026, 8, 7); // 7 Septembre 2026
 
     while (d <= end) {
       const fin = new Date(d);
-      fin.setDate(fin.getDate() + 6);
-
+      fin.setDate(fin.getDate() + 6); // Ajoute 6 jours pour fermer la semaine
+      
       const fmt = dt => dt.toLocaleDateString('fr-CA', { day: '2-digit', month: 'short' });
-
+      
       weeks.push({
-        label: `${fmt(d)} – ${fmt(fin)}`,
-        start: new Date(d)
+        label: `${fmt(d)} – ${fmt(fin)}`, // Exemple d'affichage : "17 mai – 23 mai"
+        start: new Date(d) // Garde l'objet Date brut en mémoire pour les calculs de jours
       });
-
-      d.setDate(d.getDate() + 7);
+      d.setDate(d.getDate() + 7); // Passe au dimanche suivant
     }
     return weeks;
   }
 
-  const WEEKS = getWeeks();
+  const WEEKS = getWeeks(); // Exécution immédiate pour avoir notre liste de semaines disponible partout
 
-  // ── Variables d'état globales ──
-  let currentUser = null; 
-  let allData = {}; // Structure : { "Alex": { "0": { "2026-05-17": {...} }, "1": {...} } }
 
-  // ── Initialise les deux dropdowns de semaine ──
+  /**
+   * Remplit les deux menus déroulants (<select>) avec les semaines générées par getWeeks().
+   * Sélectionne par défaut la semaine correspondant à la date d'aujourd'hui.
+   */
   function initWeekSelectors() {
     ['week-select', 'week-select-view'].forEach(id => {
       const sel = document.getElementById(id);
@@ -220,48 +219,60 @@
 
       WEEKS.forEach((w, i) => {
         const o = document.createElement('option');
-        o.value = i;
+        o.value = i; // L'identifiant de la semaine sera sa position (0, 1, 2...)
         o.textContent = w.label;
         sel.appendChild(o);
       });
 
+      // Algorithme de pré-sélection de la semaine actuelle basé sur l'horloge de l'appareil
       const now = new Date();
       const idx = WEEKS.findIndex((w, i) => !WEEKS[i+1] || now < WEEKS[i+1].start);
-      sel.value = Math.max(0, idx);
+      sel.value = Math.max(0, idx); // Si on est avant le 17 mai, sélectionne la semaine 0 par défaut
     });
   }
 
-  // ── Génère les boutons de noms dans la grille ──
+
+  // ==========================================
+  // 3. LOGIQUE DE L'ONGLET "MON HORAIRE"
+  // ==========================================
+
+  /**
+   * Dessine la grille de boutons pour choisir qui utilise l'application.
+   * Ajoute une coche "✓" à côté du nom s'il possède au moins un quart enregistré.
+   */
   function initNames() {
     const grid = document.getElementById('name-grid');
     grid.innerHTML = '';
 
     MEMBERS.forEach(m => {
-      // Vérifie si ce membre a des données dans au moins une semaine
+      // Vérifie si ce membre possède au moins un document avec des données dans allData
       const hasData = allData[m.name] && Object.values(allData[m.name]).some(w => Object.keys(w).length > 0);
-
+      
       const btn = document.createElement('button');
       btn.className = 'name-btn' + (currentUser === m.name ? ' active' : '');
 
       if (currentUser === m.name) btn.style.borderColor = m.color;
-
       btn.innerHTML = `<span class="dot" style="background:${m.color}"></span>${m.name}${hasData ? ' ✓' : ''}`;
 
+      // Au clic, on active le membre, on affiche le formulaire d'horaires et on le dessine
       btn.onclick = () => {
         currentUser = m.name;
-        initNames();
-        document.getElementById('schedule-card').style.display = '';
+        initNames(); // Redessine la grille pour appliquer la classe active
+        document.getElementById('schedule-card').style.display = ''; // Rend visible la carte de saisie
         document.getElementById('schedule-title').textContent = `Quarts de ${m.name}`;
-        renderDays();
+        renderDays(); // Génère les 7 jours de saisie pour la semaine choisie
       };
-
       grid.appendChild(btn);
     });
   }
 
-  // ── Génère les lignes de jours pour la semaine sélectionnée ──
+
+  /**
+   * Génère les 7 lignes (du Dimanche au Samedi) pour la saisie des heures.
+   * Remplit automatiquement les champs s'il y a déjà des données enregistrées pour cette semaine.
+   */
   function renderDays() {
-    if (!currentUser) return;
+    if (!currentUser) return; // Sécurité : impossible de générer les jours si on ne sait pas c'est qui
 
     const wIdx = parseInt(document.getElementById('week-select').value);
     const weekStart = WEEKS[wIdx].start;
@@ -269,13 +280,14 @@
     const container = document.getElementById('days-container');
     container.innerHTML = '';
 
-    // Récupère les données spécifiquement pour la semaine sélectionnée
+    // Va chercher les données en mémoire spécifiques à [Utilisateur][Semaine] ou prend un objet vide
     const weekData = allData[currentUser]?.[wIdx] || {};
 
     DAYS.forEach((day, di) => {
+      // Calcule la date exacte de chaque jour de la semaine (Début de semaine + index du jour)
       const dateKey = new Date(weekStart);
       dateKey.setDate(dateKey.getDate() + di);
-      const key = dateKey.toISOString().slice(0, 10);
+      const key = dateKey.toISOString().slice(0, 10); // Format strict "AAAA-MM-JJ" pour s'aligner avec Firestore
 
       const shift = weekData[key] || { start: '', end: '' };
 
@@ -283,29 +295,36 @@
       row.className = 'day-row';
       row.innerHTML = `
         <span class="day-label">${day.slice(0,3)} ${dateKey.getDate()}</span>
-        <input type="time" id="s_${key}" value="${shift.start}" placeholder="Début">
-        <input type="time" id="e_${key}" value="${shift.end}" placeholder="Fin">
-        <button class="clear-btn" onclick="clearDay('${key}')" title="Effacer">×</button>`;
+        <input type="time" id="s_${key}" value="${shift.start}">
+        <input type="time" id="e_${key}" value="${shift.end}">
+        <button class="clear-btn" data-key="${key}" title="Effacer">×</button>`;
 
       container.appendChild(row);
     });
+
+    // Écouteur d'événement sur les boutons "X" pour vider instantanément les inputs de temps d'une ligne
+    container.querySelectorAll('.clear-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        const k = e.currentTarget.getAttribute('data-key');
+        document.getElementById('s_' + k).value = '';
+        document.getElementById('e_' + k).value = '';
+      };
+    });
   }
 
-  // ── Efface les heures d'un jour spécifique dans l'interface ──
-  window.clearDay = (key) => {
-    document.getElementById('s_' + key).value = '';
-    document.getElementById('e_' + key).value = '';
-  };
 
-  // ── Sauvegarde les quarts de la semaine courante uniquement ──
-  window.saveShifts = async () => {
+  /**
+   * Parcourt les inputs de l'interface pour rassembler les heures saisies,
+   * puis les téléverse dans Firestore sous un document unique nommé : Nom_semaine_Index.
+   */
+  async function saveShifts() {
     if (!currentUser) return;
 
     const wIdx = parseInt(document.getElementById('week-select').value);
     const weekStart = WEEKS[wIdx].start;
-
     const weekData = {};
 
+    // Collecte les données de chaque input de la page
     DAYS.forEach((_, di) => {
       const dateKey = new Date(weekStart);
       dateKey.setDate(dateKey.getDate() + di);
@@ -314,54 +333,66 @@
       const s = document.getElementById('s_' + key)?.value;
       const e = document.getElementById('e_' + key)?.value;
 
+      // N'enregistre que les jours complets (Heure de début ET de fin saisie)
       if (s && e) {
         weekData[key] = { start: s, end: e };
       }
     });
 
-    // Sauvegarde dans un document dédié à cette semaine précise pour cet utilisateur
+    // Envoi à Firestore (écrase le document s'il existait déjà pour rafraîchir)
     await setDoc(doc(db, 'horaires', `${currentUser}_semaine_${wIdx}`), weekData);
 
+    // Petit effet visuel "Sauvegardé !" pendant 2 secondes
     const msg = document.getElementById('save-msg');
     msg.style.display = 'block';
     setTimeout(() => msg.style.display = 'none', 2000);
-
     initNames();
-  };
+  }
 
-  // ── Convertit une heure "HH:MM" en fraction de journée ──
+
+  // ==========================================
+  // 4. LOGIQUE DE L'ONGLET "VUE COLLECTIVE" (TIMELINE)
+  // ==========================================
+
+  /**
+   * Transforme une chaîne "HH:MM" en pourcentage de journée (valeur entre 0.0 et 1.0).
+   * Utile pour positionner les barres horizontales sur l'écran (ex: 12:00 -> 0.5 -> 50% de large).
+   */
   function timeToFrac(t) {
     if (!t) return null;
     const [h, m] = t.split(':').map(Number);
-    return (h * 60 + m) / 1440;
+    return (h * 60 + m) / 1440; // 1440 est le nombre de minutes dans 24 heures
   }
 
-  // ── Génère la vue collective pour la semaine sélectionnée ──
+
+  /**
+   * Génère la vue d'ensemble du groupe. Lit la mémoire globale pour créer des barres de couleur
+   * proportionnelles aux quarts de travail et calcule mathématiquement les heures de présence communes.
+   */
   function renderView() {
     const wIdx = parseInt(document.getElementById('week-select-view').value);
     const weekStart = WEEKS[wIdx].start;
 
-    // ── Légende des membres ──
+    // ── MIE EN PLACE DE LA LÉGENDE DES COULEURS ──
     const legend = document.getElementById('legend');
     legend.innerHTML = MEMBERS.map(m => {
       const hasAny = allData[m.name]?.[wIdx] && Object.keys(allData[m.name][wIdx]).length > 0;
-
       return `<div class="legend-item">
         <span class="dot" style="background:${m.color};opacity:${hasAny?1:0.3}"></span>
         <span style="opacity:${hasAny?1:0.4}">${m.name}</span>
       </div>`;
     }).join('');
 
-    // ── Timeline jour par jour ──
     const cv = document.getElementById('collective-view');
     cv.innerHTML = '';
 
+    // ── CONSTRUCTION DE LA TIMELINE JOUR PAR JOUR ──
     DAYS.forEach((day, di) => {
       const dateKey = new Date(weekStart);
       dateKey.setDate(dateKey.getDate() + di);
       const key = dateKey.toISOString().slice(0, 10);
 
-      // Récupère les quarts de la semaine sélectionnée pour chaque membre
+      // Récupère la liste de tous les membres qui travaillent ce jour précis
       const shifts = MEMBERS
         .map(m => ({ member: m, shift: allData[m.name]?.[wIdx]?.[key] || null }))
         .filter(x => x.shift);
@@ -379,7 +410,7 @@
         empty.textContent = 'Aucun quart enregistré';
         block.appendChild(empty);
       } else {
-
+        // Dessine une barre horizontale pour chaque travailleur du jour
         shifts.forEach(({ member, shift }) => {
           const track = document.createElement('div');
           track.className = 'tl-track';
@@ -390,8 +421,8 @@
           if (sf !== null && ef !== null && ef > sf) {
             const bar = document.createElement('div');
             bar.className = 'tl-bar';
-            bar.style.left = (sf * 100) + '%';
-            bar.style.width = ((ef - sf) * 100) + '%';
+            bar.style.left = (sf * 100) + '%'; // Position de départ en %
+            bar.style.width = ((ef - sf) * 100) + '%'; // Longueur de la barre en %
             bar.style.background = member.color;
             bar.textContent = `${member.name} ${shift.start}–${shift.end}`;
             track.appendChild(bar);
@@ -399,6 +430,7 @@
           block.appendChild(track);
         });
 
+        // Ajoute la petite ligne de repère des heures (0h, 6h, 12h...) sous les barres
         const hoursDiv = document.createElement('div');
         hoursDiv.className = 'tl-hours';
         ['0h','6h','12h','18h','24h'].forEach(h => {
@@ -409,6 +441,7 @@
         });
         block.appendChild(hoursDiv);
 
+        // ── CALCUL DES DISPONIBILITÉS ENSEMBLE (Superpositions de quarts) ──
         const availLabel = document.createElement('p');
         availLabel.className = 'avail-label';
         availLabel.textContent = 'Disponibles ensemble :';
@@ -417,9 +450,11 @@
         const availTrack = document.createElement('div');
         availTrack.className = 'avail-track';
 
+        // On découpe la journée en 48 blocs de 30 minutes
         const SLOTS = 48;
         const counts = new Array(SLOTS).fill(0);
 
+        // Pour chaque membre présent, on ajoute "+1" dans les cases de 30 minutes où il travaille
         shifts.forEach(({ shift }) => {
           const sf = timeToFrac(shift.start);
           const ef = timeToFrac(shift.end);
@@ -432,59 +467,101 @@
 
         const maxCount = Math.max(...counts);
 
+        // Dessine la barre de présence commune (plus le bleu est foncé, plus il y a de monde)
         for (let i = 0; i < SLOTS; i++) {
           if (!counts[i]) continue;
 
           let j = i;
+          // Regroupe les blocs consécutifs qui ont exactement le même nombre de personnes
           while (j < SLOTS && counts[j] === counts[i]) j++;
 
           const bar = document.createElement('div');
           bar.style.cssText = `position:absolute;top:0;height:100%;left:${i/SLOTS*100}%;width:${(j-i)/SLOTS*100}%;background:rgba(47,79,143,${0.2+counts[i]/Math.max(maxCount,1)*0.7})`;
-          bar.title = `${counts[i]} personne(s)`;
+          bar.title = `${counts[i]} personne(s)`; // Affiché au survol de la souris
           availTrack.appendChild(bar);
-          i = j - 1;
+          i = j - 1; // Avance l'index de la boucle au prochain bloc disponible
         }
-
         block.appendChild(availTrack);
       }
-
       cv.appendChild(block);
     });
 
-    document.getElementById('sync-status').textContent =
-      `Dernière mise à jour : ${new Date().toLocaleTimeString('fr-CA')}`;
+    // Met à jour la note de synchronisation en bas de l'écran
+    document.getElementById('sync-status').textContent = `Dernière mise à jour : ${new Date().toLocaleTimeString('fr-CA')}`;
   }
 
-  // ── Gestion des onglets ──
+
+  // ==========================================
+  // 5. COMMUTATION D'ONGLETS ET ÉVÉNEMENTS UI
+  // ==========================================
+
+  /**
+   * Gère le basculement d'affichage entre l'onglet Saisie ("Mon horaire") et Visionneuse ("Vue collective").
+   */
   window.showTab = (t) => {
     document.getElementById('panel-entry').style.display = t === 'entry' ? '' : 'none';
     document.getElementById('panel-view').style.display  = t === 'view'  ? '' : 'none';
+    
+    // Alterne les classes CSS actives sur les boutons du menu d'onglets
     document.getElementById('tab-entry').className = 'tab' + (t === 'entry' ? ' active' : '');
     document.getElementById('tab-view').className  = 'tab' + (t === 'view'  ? ' active' : '');
+    
+    // Si l'utilisateur clique sur la vue collective, on la recalcule immédiatement
     if (t === 'view') renderView();
   };
 
-  // ── Listener temps réel global ──
-  // Écoute tous les documents de la collection et organise la mémoire par [membre][semaine]
+  // Attachement des fonctions de rafraîchissement lors des interactions utilisateur avec les menus déroulants
+  document.getElementById('week-select').onchange = () => renderDays();
+  document.getElementById('week-select-view').onchange = () => renderView();
+  document.getElementById('btn-save-shifts').onclick = () => saveShifts();
+
+
+  // ==========================================
+  // 6. SYNCHRONISATION EN TEMPS RÉEL (FIREBASE)
+  // ==========================================
+
+  /**
+   * Écouteur Firebase en temps réel (`onSnapshot`). 
+   * S'active automatiquement dès que l'application s'ouvre OU dès que quelqu'un modifie Firestore.
+   * Il reconstruit la variable `allData` et force l'écran à se mettre à jour sans recharger la page.
+   */
   onSnapshot(collection(db, 'horaires'), (snapshot) => {
+    allData = {}; // On vide l'ancienne mémoire locale pour reconstruire proprement avec les nouvelles réalités de Firestore
+
     snapshot.forEach(docSnap => {
+      // Découpe l'ID du document (ex: "Alex_semaine_2" devient ["Alex", "2"])
       const parts = docSnap.id.split('_semaine_');
       if (parts.length === 2) {
         const uName = parts[0];
         const wIndex = parseInt(parts[1]);
         
+        // Crée la structure imbriquée en mémoire si elle n'existait pas encore pour ce membre
         if (!allData[uName]) allData[uName] = {};
-        allData[uName][wIndex] = docSnap.data();
+        allData[uName][wIndex] = docSnap.data(); // Injection du JSON des jours de travail
       }
     });
     
+    // Actualisation des interfaces graphiques suite à la réception des données de la base
     initNames();
-    renderDays();
+    
+    // Sécurité : Ne rafraîchit l'interface de saisie que si l'utilisateur a sélectionné son identité
+    if (currentUser) {
+      renderDays();
+    }
 
+    // Si l'utilisateur est actuellement en train de regarder l'onglet de la vue collective, on la redessine en direct
     const viewPanel = document.getElementById('panel-view');
-    if (viewPanel.style.display !== 'none') renderView();
+    if (viewPanel && viewPanel.style.display !== 'none') {
+      renderView();
+    }
   });
 
-  // ── Point d'entrée ──
-  initWeekSelectors();
+
+  // ==========================================
+  // 7. DÉMARRAGE INITIAL DE L'APP
+  // ==========================================
+  initWeekSelectors(); // Construit les menus de semaines dès que le fichier est prêt à l'écran
+
 </script>
+</body>
+</html>
