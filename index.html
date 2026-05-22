@@ -1,161 +1,9 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Horaire Goonini</title>
-  <style>
-    /* ── Reset de base ── */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; background: #f4f6fb; color: #222; min-height: 100vh; }
-
-    /* ── En-tête bleu en haut de page ── */
-    .header { background: #2F4F8F; color: white; padding: 16px 24px; font-size: 18px; font-weight: bold; }
-
-    /* ── Conteneur centré, max 700px ── */
-    .container { max-width: 700px; margin: 24px auto; padding: 0 16px; }
-
-    /* ── Carte blanche avec bordure arrondie ── */
-    .card { background: white; border-radius: 12px; border: 1px solid #e0e0e0; padding: 20px; margin-bottom: 16px; }
-
-    /* ── Titre de section en gris majuscule ── */
-    .section-title { font-size: 13px; font-weight: 600; color: #888; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-    /* ── Grille 3 colonnes pour les boutons de noms ── */
-    .name-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
-
-    /* ── Bouton de sélection de nom ── */
-    .name-btn { padding: 10px; border-radius: 8px; border: 1.5px solid #e0e0e0; background: white; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; }
-    .name-btn:hover { background: #f4f6fb; }
-    .name-btn.active { border-width: 2px; } /* bordure plus épaisse quand sélectionné */
-
-    /* ── Petit cercle de couleur à côté du nom ── */
-    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-
-    /* ── Barre d'onglets (Mon horaire / Vue collective) ── */
-    .tab-bar { display: flex; gap: 6px; margin-bottom: 20px; }
-    .tab { padding: 8px 20px; border-radius: 8px; border: 1px solid #e0e0e0; background: white; color: #888; font-size: 13px; cursor: pointer; }
-    .tab.active { background: #2F4F8F; color: white; border-color: #2F4F8F; font-weight: 600; }
-
-    /* ── Sélecteur de semaine (label + dropdown) ── */
-    .week-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-    .week-selector label { font-size: 13px; color: #888; white-space: nowrap; }
-    select { font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid #e0e0e0; background: white; color: #222; }
-
-    /* ── Ligne d'un jour : [label] [début] [fin] [×] ── */
-    .day-row { display: grid; grid-template-columns: 90px 1fr 1fr 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .day-label { font-size: 13px; color: #555; }
-    input[type=time] { font-size: 13px; padding: 6px 8px; border-radius: 8px; border: 1px solid #e0e0e0; width: 100%; }
-
-    /* ── Bouton × pour effacer les heures d'un jour ── */
-    .clear-btn { background: none; border: none; cursor: pointer; color: #bbb; font-size: 18px; display: flex; align-items: center; justify-content: center; }
-    .clear-btn:hover { color: #555; }
-
-    /* ── Bouton Sauvegarder ── */
-    .save-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2F4F8F; background: #2F4F8F; color: white; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
-    .save-btn:hover { background: #1e3a6e; }
-
-    /* ── Message de confirmation après sauvegarde ── */
-    .save-msg { font-size: 12px; color: #58B77A; text-align: center; margin-top: 6px; display: none; }
-
-    /* ── Légende des couleurs dans la vue collective ── */
-    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
-    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
-
-    /* ── Titre d'un jour dans la timeline ── */
-    .tl-day-label { font-size: 13px; font-weight: 600; color: #444; margin: 0 0 6px; }
-
-    /* ── Piste grise sur laquelle les barres de quart se superposent ── */
-    .tl-track { position: relative; height: 28px; background: #f0f2f7; border-radius: 6px; overflow: hidden; margin-bottom: 3px; }
-
-    /* ── Barre colorée représentant un quart de travail ── */
-    .tl-bar { position: absolute; top: 4px; height: 20px; border-radius: 4px; display: flex; align-items: center; padding: 0 6px; font-size: 11px; font-weight: 600; color: white; overflow: hidden; white-space: nowrap; }
-
-    /* ── Étiquettes d'heures sous la timeline (0h, 6h, 12h...) ── */
-    .tl-hours { display: flex; justify-content: space-between; margin: 2px 0 6px; }
-    .tl-hour-label { font-size: 10px; color: #aaa; }
-
-    /* ── Section "Disponibles ensemble" ── */
-    .avail-label { font-size: 11px; color: #888; margin: 4px 0 3px; }
-    .avail-track { position: relative; height: 18px; background: #f0f2f7; border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
-
-    /* ── Texte quand aucun quart n'est enregistré pour un jour ── */
-    .empty-day { font-size: 12px; color: #bbb; margin-bottom: 12px; }
-
-    /* ── Statut de sync en bas de la vue collective ── */
-    .status { font-size: 12px; color: #aaa; text-align: center; padding: 8px; }
-  </style>
-</head>
-<body>
-
-<div class="header">📅 Horaire Goonini</div>
-
-<div class="container">
-
-  <!-- Onglets de navigation -->
-  <div class="tab-bar">
-    <button class="tab active" onclick="showTab('entry')" id="tab-entry">Mon horaire</button>
-    <button class="tab" onclick="showTab('view')" id="tab-view">Vue collective</button>
-  </div>
-
-  <!-- ── PANNEAU : Mon horaire ── -->
-  <div id="panel-entry">
-
-    <!-- Sélection du membre -->
-    <div class="card">
-      <p class="section-title">Qui es-tu ?</p>
-      <div class="name-grid" id="name-grid"></div>
-      <!-- Les boutons de noms sont générés dynamiquement par initNames() -->
-    </div>
-
-    <!-- Grille de saisie des quarts (cachée jusqu'à ce qu'un nom soit choisi) -->
-    <div class="card" id="schedule-card" style="display:none">
-      <p class="section-title" id="schedule-title">Mes quarts</p>
-
-      <!-- Dropdown de sélection de semaine -->
-      <div class="week-selector">
-        <label>Semaine :</label>
-        <select id="week-select" onchange="renderDays()"></select>
-        <!-- onchange : recharge les jours à chaque changement de semaine -->
-      </div>
-
-      <!-- Les lignes de jours sont générées dynamiquement par renderDays() -->
-      <div id="days-container"></div>
-
-      <button class="save-btn" onclick="saveShifts()">✓ Sauvegarder</button>
-      <p class="save-msg" id="save-msg">Sauvegardé !</p>
-    </div>
-  </div>
-
-  <!-- ── PANNEAU : Vue collective ── -->
-  <div id="panel-view" style="display:none">
-    <div class="card">
-
-      <!-- Dropdown de semaine pour la vue collective -->
-      <div class="week-selector">
-        <label>Semaine :</label>
-        <select id="week-select-view" onchange="renderView()"></select>
-      </div>
-
-      <!-- Légende des couleurs par membre -->
-      <div class="legend" id="legend"></div>
-
-      <!-- Timeline générée dynamiquement par renderView() -->
-      <div id="collective-view"></div>
-
-      <!-- Horodatage de la dernière sync Firebase -->
-      <p class="status" id="sync-status">Chargement...</p>
-    </div>
-  </div>
-
-</div>
-
 <script type="module">
   // ── Imports Firebase (chargés depuis le CDN Google) ──
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-  // ── Configuration Firebase (générée lors de la création du projet) ──
+  // ── Configuration Firebase ──
   const firebaseConfig = {
     apiKey: "AIzaSyBmqBVV7NG452qr0UxsDQIv0gBXXqHgDsE",
     authDomain: "horairegoonini.firebaseapp.com",
@@ -168,10 +16,9 @@
 
   // ── Initialisation de Firebase et Firestore ──
   const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app); // db = notre base de données
+  const db = getFirestore(app);
 
   // ── Liste des membres du groupe ──
-  // Chaque membre a un nom (utilisé comme clé dans Firestore) et une couleur
   const MEMBERS = [
     { name: "Alex",   color: "#3F9120" },
     { name: "PO",     color: "#871F16" },
@@ -181,39 +28,38 @@
     { name: "Fyl",    color: "#564304" },
   ];
 
-  // ── Noms des jours de la semaine (index 0 = dimanche) ──
+  // ── Noms des jours de la semaine ──
   const DAYS = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 
   // ── Génération de toutes les semaines entre le 17 mai et le 7 sept 2026 ──
   function getWeeks() {
     const weeks = [];
-    let d = new Date(2026, 4, 17); // mois = 4 car janvier = 0 en JS
+    let d = new Date(2026, 4, 17);
     const end = new Date(2026, 8, 7);
 
     while (d <= end) {
       const fin = new Date(d);
-      fin.setDate(fin.getDate() + 6); // fin de semaine = début + 6 jours
+      fin.setDate(fin.getDate() + 6);
 
-      // Format lisible : "17 mai – 23 mai"
       const fmt = dt => dt.toLocaleDateString('fr-CA', { day: '2-digit', month: 'short' });
 
       weeks.push({
-        label: `${fmt(d)} – ${fmt(fin)}`, // texte affiché dans le dropdown
-        start: new Date(d)                 // date de début (pour les calculs)
+        label: `${fmt(d)} – ${fmt(fin)}`,
+        start: new Date(d)
       });
 
-      d.setDate(d.getDate() + 7); // avance d'une semaine
+      d.setDate(d.getDate() + 7);
     }
     return weeks;
   }
 
-  const WEEKS = getWeeks(); // tableau de toutes les semaines
+  const WEEKS = getWeeks();
 
   // ── Variables d'état globales ──
-  let currentUser = null; // nom du membre actuellement sélectionné
-  let allData = {};       // { "Alex": { "2026-05-18": { start: "08:00", end: "16:00" }, ... }, ... }
+  let currentUser = null; 
+  let allData = {}; // Structure : { "Alex": { "0": { "2026-05-17": {...} }, "1": {...} } }
 
-  // ── Initialise les deux dropdowns de semaine avec les mêmes options ──
+  // ── Initialise les deux dropdowns de semaine ──
   function initWeekSelectors() {
     ['week-select', 'week-select-view'].forEach(id => {
       const sel = document.getElementById(id);
@@ -221,12 +67,11 @@
 
       WEEKS.forEach((w, i) => {
         const o = document.createElement('option');
-        o.value = i;          // l'index sert de valeur pour retrouver la semaine
+        o.value = i;
         o.textContent = w.label;
         sel.appendChild(o);
       });
 
-      // Sélectionne automatiquement la semaine courante au chargement
       const now = new Date();
       const idx = WEEKS.findIndex((w, i) => !WEEKS[i+1] || now < WEEKS[i+1].start);
       sel.value = Math.max(0, idx);
@@ -236,27 +81,25 @@
   // ── Génère les boutons de noms dans la grille ──
   function initNames() {
     const grid = document.getElementById('name-grid');
-    grid.innerHTML = ''; // vide la grille avant de la reconstruire
+    grid.innerHTML = '';
 
     MEMBERS.forEach(m => {
-      // Vérifie si ce membre a déjà des données enregistrées
-      const hasData = allData[m.name] && Object.keys(allData[m.name]).length > 0;
+      // Vérifie si ce membre a des données dans au moins une semaine
+      const hasData = allData[m.name] && Object.values(allData[m.name]).some(w => Object.keys(w).length > 0);
 
       const btn = document.createElement('button');
       btn.className = 'name-btn' + (currentUser === m.name ? ' active' : '');
 
-      // Applique la couleur du membre sur la bordure si c'est lui qui est sélectionné
       if (currentUser === m.name) btn.style.borderColor = m.color;
 
-      // Affiche un ✓ si le membre a déjà sauvegardé des quarts
       btn.innerHTML = `<span class="dot" style="background:${m.color}"></span>${m.name}${hasData ? ' ✓' : ''}`;
 
       btn.onclick = () => {
         currentUser = m.name;
-        initNames(); // rafraîchit les boutons pour montrer le nouveau sélectionné
+        initNames();
         document.getElementById('schedule-card').style.display = '';
         document.getElementById('schedule-title').textContent = `Quarts de ${m.name}`;
-        renderDays(); // charge les jours pour ce membre
+        renderDays();
       };
 
       grid.appendChild(btn);
@@ -267,27 +110,21 @@
   function renderDays() {
     if (!currentUser) return;
 
-    // Récupère l'index de la semaine choisie dans le dropdown
     const wIdx = parseInt(document.getElementById('week-select').value);
-    const weekStart = WEEKS[wIdx].start; // date du dimanche de cette semaine
+    const weekStart = WEEKS[wIdx].start;
 
     const container = document.getElementById('days-container');
-    container.innerHTML = ''; // vide avant de reconstruire
+    container.innerHTML = '';
 
-    // Données déjà sauvegardées pour ce membre
-    const userData = allData[currentUser] || {};
+    // Récupère les données spécifiquement pour la semaine sélectionnée
+    const weekData = allData[currentUser]?.[wIdx] || {};
 
     DAYS.forEach((day, di) => {
-      // Calcule la date exacte de ce jour (dimanche + di jours)
       const dateKey = new Date(weekStart);
       dateKey.setDate(dateKey.getDate() + di);
-
-      // Clé unique pour ce jour : format ISO "2026-05-18"
-      // C'est cette clé qui est utilisée dans Firestore pour stocker le quart
       const key = dateKey.toISOString().slice(0, 10);
 
-      // Récupère le quart existant ou valeurs vides par défaut
-      const shift = userData[key] || { start: '', end: '' };
+      const shift = weekData[key] || { start: '', end: '' };
 
       const row = document.createElement('div');
       row.className = 'day-row';
@@ -307,54 +144,43 @@
     document.getElementById('e_' + key).value = '';
   };
 
-  // ── Sauvegarde les quarts du membre courant dans Firestore ──
+  // ── Sauvegarde les quarts de la semaine courante uniquement ──
   window.saveShifts = async () => {
     if (!currentUser) return;
 
     const wIdx = parseInt(document.getElementById('week-select').value);
     const weekStart = WEEKS[wIdx].start;
 
-    // S'assure que l'objet du membre existe dans allData
-    if (!allData[currentUser]) allData[currentUser] = {};
+    const weekData = {};
 
-    // Parcourt uniquement les 7 jours de la semaine sélectionnée
     DAYS.forEach((_, di) => {
       const dateKey = new Date(weekStart);
       dateKey.setDate(dateKey.getDate() + di);
       const key = dateKey.toISOString().slice(0, 10);
 
-      // Lit les valeurs des inputs de cette journée
       const s = document.getElementById('s_' + key)?.value;
       const e = document.getElementById('e_' + key)?.value;
 
       if (s && e) {
-        // Les deux champs remplis → on sauvegarde
-        allData[currentUser][key] = { start: s, end: e };
-      } else {
-        // Champs vides → on supprime la clé pour ne pas garder de données fantômes
-        delete allData[currentUser][key];
+        weekData[key] = { start: s, end: e };
       }
     });
 
-    // Envoie toutes les données du membre vers Firestore
-    // setDoc écrase le document entier — toutes les semaines du membre sont conservées
-    await setDoc(doc(db, 'horaires', currentUser), allData[currentUser]);
+    // Sauvegarde dans un document dédié à cette semaine précise pour cet utilisateur
+    await setDoc(doc(db, 'horaires', `${currentUser}_semaine_${wIdx}`), weekData);
 
-    // Affiche le message de confirmation pendant 2 secondes
     const msg = document.getElementById('save-msg');
     msg.style.display = 'block';
     setTimeout(() => msg.style.display = 'none', 2000);
 
-    initNames(); // rafraîchit les ✓ dans les boutons de noms
+    initNames();
   };
 
-  // ── Convertit une heure "HH:MM" en fraction de journée (0.0 à 1.0) ──
-  // Utilisé pour calculer la position et largeur des barres dans la timeline
-  // Exemple : "06:00" → 0.25 (6h / 24h = 25% de la journée)
+  // ── Convertit une heure "HH:MM" en fraction de journée ──
   function timeToFrac(t) {
     if (!t) return null;
     const [h, m] = t.split(':').map(Number);
-    return (h * 60 + m) / 1440; // 1440 = nombre de minutes dans une journée
+    return (h * 60 + m) / 1440;
   }
 
   // ── Génère la vue collective pour la semaine sélectionnée ──
@@ -365,16 +191,8 @@
     // ── Légende des membres ──
     const legend = document.getElementById('legend');
     legend.innerHTML = MEMBERS.map(m => {
-      // Vérifie si ce membre a des quarts dans cette semaine spécifique
-      const hasAny = allData[m.name] && Object.keys(allData[m.name]).some(k => {
-        const d = new Date(k);
-        const ws = new Date(weekStart);
-        const we = new Date(weekStart);
-        we.setDate(we.getDate() + 6);
-        return d >= ws && d <= we; // la date est-elle dans la semaine affichée ?
-      });
+      const hasAny = allData[m.name]?.[wIdx] && Object.keys(allData[m.name][wIdx]).length > 0;
 
-      // Membre sans quarts cette semaine = affiché en transparent
       return `<div class="legend-item">
         <span class="dot" style="background:${m.color};opacity:${hasAny?1:0.3}"></span>
         <span style="opacity:${hasAny?1:0.4}">${m.name}</span>
@@ -390,28 +208,25 @@
       dateKey.setDate(dateKey.getDate() + di);
       const key = dateKey.toISOString().slice(0, 10);
 
-      // Récupère les quarts de tous les membres pour ce jour
+      // Récupère les quarts de la semaine sélectionnée pour chaque membre
       const shifts = MEMBERS
-        .map(m => ({ member: m, shift: allData[m.name]?.[key] || null }))
-        .filter(x => x.shift); // garde seulement ceux qui ont un quart ce jour
+        .map(m => ({ member: m, shift: allData[m.name]?.[wIdx]?.[key] || null }))
+        .filter(x => x.shift);
 
       const block = document.createElement('div');
 
-      // Titre du jour (ex. "Lundi 18")
       const label = document.createElement('p');
       label.className = 'tl-day-label';
       label.textContent = `${day} ${dateKey.getDate()}`;
       block.appendChild(label);
 
       if (shifts.length === 0) {
-        // Aucun quart ce jour
         const empty = document.createElement('div');
         empty.className = 'empty-day';
         empty.textContent = 'Aucun quart enregistré';
         block.appendChild(empty);
       } else {
 
-        // ── Une piste par membre qui travaille ce jour ──
         shifts.forEach(({ member, shift }) => {
           const track = document.createElement('div');
           track.className = 'tl-track';
@@ -422,8 +237,8 @@
           if (sf !== null && ef !== null && ef > sf) {
             const bar = document.createElement('div');
             bar.className = 'tl-bar';
-            bar.style.left = (sf * 100) + '%';   // position de départ en %
-            bar.style.width = ((ef - sf) * 100) + '%'; // largeur proportionnelle
+            bar.style.left = (sf * 100) + '%';
+            bar.style.width = ((ef - sf) * 100) + '%';
             bar.style.background = member.color;
             bar.textContent = `${member.name} ${shift.start}–${shift.end}`;
             track.appendChild(bar);
@@ -431,7 +246,6 @@
           block.appendChild(track);
         });
 
-        // ── Étiquettes d'heures (0h, 6h, 12h, 18h, 24h) ──
         const hoursDiv = document.createElement('div');
         hoursDiv.className = 'tl-hours';
         ['0h','6h','12h','18h','24h'].forEach(h => {
@@ -442,9 +256,6 @@
         });
         block.appendChild(hoursDiv);
 
-        // ── Barre de disponibilité collective ──
-        // Divise la journée en 48 tranches de 30 minutes
-        // Compte combien de personnes travaillent dans chaque tranche
         const availLabel = document.createElement('p');
         availLabel.className = 'avail-label';
         availLabel.textContent = 'Disponibles ensemble :';
@@ -453,14 +264,13 @@
         const availTrack = document.createElement('div');
         availTrack.className = 'avail-track';
 
-        const SLOTS = 48; // 48 tranches de 30 min = 24h
+        const SLOTS = 48;
         const counts = new Array(SLOTS).fill(0);
 
         shifts.forEach(({ shift }) => {
           const sf = timeToFrac(shift.start);
           const ef = timeToFrac(shift.end);
           if (sf !== null && ef !== null) {
-            // Incrémente le compteur pour chaque tranche couverte par ce quart
             for (let i = Math.round(sf * SLOTS); i < Math.round(ef * SLOTS); i++) {
               counts[i]++;
             }
@@ -469,15 +279,13 @@
 
         const maxCount = Math.max(...counts);
 
-        // Regroupe les tranches consécutives de même valeur pour optimiser le rendu
         for (let i = 0; i < SLOTS; i++) {
-          if (!counts[i]) continue; // tranche vide, on saute
+          if (!counts[i]) continue;
 
           let j = i;
           while (j < SLOTS && counts[j] === counts[i]) j++;
 
           const bar = document.createElement('div');
-          // Plus il y a de monde, plus la barre est foncée (opacité proportionnelle)
           bar.style.cssText = `position:absolute;top:0;height:100%;left:${i/SLOTS*100}%;width:${(j-i)/SLOTS*100}%;background:rgba(47,79,143,${0.2+counts[i]/Math.max(maxCount,1)*0.7})`;
           bar.title = `${counts[i]} personne(s)`;
           availTrack.appendChild(bar);
@@ -490,49 +298,40 @@
       cv.appendChild(block);
     });
 
-    // Met à jour l'heure de la dernière synchronisation
     document.getElementById('sync-status').textContent =
       `Dernière mise à jour : ${new Date().toLocaleTimeString('fr-CA')}`;
   }
 
-  // ── Gestion des onglets (Mon horaire / Vue collective) ──
+  // ── Gestion des onglets ──
   window.showTab = (t) => {
     document.getElementById('panel-entry').style.display = t === 'entry' ? '' : 'none';
     document.getElementById('panel-view').style.display  = t === 'view'  ? '' : 'none';
     document.getElementById('tab-entry').className = 'tab' + (t === 'entry' ? ' active' : '');
     document.getElementById('tab-view').className  = 'tab' + (t === 'view'  ? ' active' : '');
-    if (t === 'view') renderView(); // rafraîchit la vue collective à chaque ouverture
+    if (t === 'view') renderView();
   };
 
-  // ── Chargement initial des données depuis Firestore ──
-  // Récupère les quarts de chaque membre au chargement de la page
-  async function loadAll() {
-    for (const m of MEMBERS) {
-      const snap = await getDoc(doc(db, 'horaires', m.name));
-      if (snap.exists()) allData[m.name] = snap.data();
-    }
-    initNames();
-    renderView();
-  }
-
-  // ── Listener temps réel : met à jour l'app dès qu'un membre sauvegarde ──
-  // onSnapshot écoute la collection "horaires" en continu
-  // Chaque fois qu'un document change, cette fonction est appelée automatiquement
+  // ── Listener temps réel global ──
+  // Écoute tous les documents de la collection et organise la mémoire par [membre][semaine]
   onSnapshot(collection(db, 'horaires'), (snapshot) => {
     snapshot.forEach(docSnap => {
-      allData[docSnap.id] = docSnap.data(); // docSnap.id = nom du membre
+      const parts = docSnap.id.split('_semaine_');
+      if (parts.length === 2) {
+        const uName = parts[0];
+        const wIndex = parseInt(parts[1]);
+        
+        if (!allData[uName]) allData[uName] = {};
+        allData[uName][wIndex] = docSnap.data();
+      }
     });
+    
     initNames();
+    renderDays();
 
-    // Rafraîchit la vue collective seulement si elle est visible
     const viewPanel = document.getElementById('panel-view');
     if (viewPanel.style.display !== 'none') renderView();
   });
 
-  // ── Point d'entrée : initialisation au chargement de la page ──
+  // ── Point d'entrée ──
   initWeekSelectors();
-  loadAll();
-
 </script>
-</body>
-</html>
