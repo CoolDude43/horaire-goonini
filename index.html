@@ -1,3 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Horaire Goonini</title>
+  <style>
+    /* ── Reset de base ── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f4f6fb; color: #222; min-height: 100vh; }
+
+    /* ── En-tête bleu en haut de page ── */
+    .header { background: #2F4F8F; color: white; padding: 16px 24px; font-size: 18px; font-weight: bold; }
+
+    /* ── Conteneur centré, max 700px ── */
+    .container { max-width: 700px; margin: 24px auto; padding: 0 16px; }
+
+    /* ── Carte blanche avec bordure arrondie ── */
+    .card { background: white; border-radius: 12px; border: 1px solid #e0e0e0; padding: 20px; margin-bottom: 16px; }
+
+    /* ── Titre de section en gris majuscule ── */
+    .section-title { font-size: 13px; font-weight: 600; color: #888; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ── Grille 3 colonnes pour les boutons de noms ── */
+    .name-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+
+    /* ── Bouton de sélection de nom ── */
+    .name-btn { padding: 10px; border-radius: 8px; border: 1.5px solid #e0e0e0; background: white; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s; }
+    .name-btn:hover { background: #f4f6fb; }
+    .name-btn.active { border-width: 2px; } /* bordure plus épaisse quand sélectionné */
+
+    /* ── Petit cercle de couleur à côté du nom ── */
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Barre d'onglets (Mon horaire / Vue collective) ── */
+    .tab-bar { display: flex; gap: 6px; margin-bottom: 20px; }
+    .tab { padding: 8px 20px; border-radius: 8px; border: 1px solid #e0e0e0; background: white; color: #888; font-size: 13px; cursor: pointer; }
+    .tab.active { background: #2F4F8F; color: white; border-color: #2F4F8F; font-weight: 600; }
+
+    /* ── Sélecteur de semaine (label + dropdown) ── */
+    .week-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .week-selector label { font-size: 13px; color: #888; white-space: nowrap; }
+    select { font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid #e0e0e0; background: white; color: #222; }
+
+    /* ── Ligne d'un jour : [label] [début] [fin] [×] ── */
+    .day-row { display: grid; grid-template-columns: 90px 1fr 1fr 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .day-label { font-size: 13px; color: #555; }
+    input[type=time] { font-size: 13px; padding: 6px 8px; border-radius: 8px; border: 1px solid #e0e0e0; width: 100%; }
+
+    /* ── Bouton × pour effacer les heures d'un jour ── */
+    .clear-btn { background: none; border: none; cursor: pointer; color: #bbb; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+    .clear-btn:hover { color: #555; }
+
+    /* ── Bouton Sauvegarder ── */
+    .save-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2F4F8F; background: #2F4F8F; color: white; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .save-btn:hover { background: #1e3a6e; }
+
+    /* ── Message de confirmation après sauvegarde ── */
+    .save-msg { font-size: 12px; color: #58B77A; text-align: center; margin-top: 6px; display: none; }
+
+    /* ── Légende des couleurs dans la vue collective ── */
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
+
+    /* ── Titre d'un jour dans la timeline ── */
+    .tl-day-label { font-size: 13px; font-weight: 600; color: #444; margin: 0 0 6px; }
+
+    /* ── Piste grise sur laquelle les barres de quart se superposent ── */
+    .tl-track { position: relative; height: 28px; background: #f0f2f7; border-radius: 6px; overflow: hidden; margin-bottom: 3px; }
+
+    /* ── Barre colorée représentant un quart de travail ── */
+    .tl-bar { position: absolute; top: 4px; height: 20px; border-radius: 4px; display: flex; align-items: center; padding: 0 6px; font-size: 11px; font-weight: 600; color: white; overflow: hidden; white-space: nowrap; }
+
+    /* ── Étiquettes d'heures sous la timeline (0h, 6h, 12h...) ── */
+    .tl-hours { display: flex; justify-content: space-between; margin: 2px 0 6px; }
+    .tl-hour-label { font-size: 10px; color: #aaa; }
+
+    /* ── Section "Disponibles ensemble" ── */
+    .avail-label { font-size: 11px; color: #888; margin: 4px 0 3px; }
+    .avail-track { position: relative; height: 18px; background: #f0f2f7; border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
+
+    /* ── Texte quand aucun quart n'est enregistré pour un jour ── */
+    .empty-day { font-size: 12px; color: #bbb; margin-bottom: 12px; }
+
+    /* ── Statut de sync en bas de la vue collective ── */
+    .status { font-size: 12px; color: #aaa; text-align: center; padding: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="header">📅 Horaire Goonini</div>
+
+<div class="container">
+
+  <!-- Onglets de navigation -->
+  <div class="tab-bar">
+    <button class="tab active" onclick="showTab('entry')" id="tab-entry">Mon horaire</button>
+    <button class="tab" onclick="showTab('view')" id="tab-view">Vue collective</button>
+  </div>
+
+  <!-- ── PANNEAU : Mon horaire ── -->
+  <div id="panel-entry">
+
+    <!-- Sélection du membre -->
+    <div class="card">
+      <p class="section-title">Qui es-tu ?</p>
+      <div class="name-grid" id="name-grid"></div>
+      <!-- Les boutons de noms sont générés dynamiquement par initNames() -->
+    </div>
+
+    <!-- Grille de saisie des quarts (cachée jusqu'à ce qu'un nom soit choisi) -->
+    <div class="card" id="schedule-card" style="display:none">
+      <p class="section-title" id="schedule-title">Mes quarts</p>
+
+      <!-- Dropdown de sélection de semaine -->
+      <div class="week-selector">
+        <label>Semaine :</label>
+        <select id="week-select" onchange="renderDays()"></select>
+        <!-- onchange : recharge les jours à chaque changement de semaine -->
+      </div>
+
+      <!-- Les lignes de jours sont générées dynamiquement par renderDays() -->
+      <div id="days-container"></div>
+
+      <button class="save-btn" onclick="saveShifts()">✓ Sauvegarder</button>
+      <p class="save-msg" id="save-msg">Sauvegardé !</p>
+    </div>
+  </div>
+
+  <!-- ── PANNEAU : Vue collective ── -->
+  <div id="panel-view" style="display:none">
+    <div class="card">
+
+      <!-- Dropdown de semaine pour la vue collective -->
+      <div class="week-selector">
+        <label>Semaine :</label>
+        <select id="week-select-view" onchange="renderView()"></select>
+      </div>
+
+      <!-- Légende des couleurs par membre -->
+      <div class="legend" id="legend"></div>
+
+      <!-- Timeline générée dynamiquement par renderView() -->
+      <div id="collective-view"></div>
+
+      <!-- Horodatage de la dernière sync Firebase -->
+      <p class="status" id="sync-status">Chargement...</p>
+    </div>
+  </div>
+
+</div>
+
+
 <script type="module">
   // ── Imports Firebase (chargés depuis le CDN Google) ──
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
