@@ -169,9 +169,9 @@
   const MEMBERS = [
     { name: "Alex",   color: "#3F9120" },
     { name: "PO",     color: "#871F16" },
-    { name: "Jaco",   color: "#231687" },
+    { name: "Jac",   color: "#231687" },
     { name: "Sam",    color: "#D1462A" },
-    { name: "Xavier", color: "#2ECAD1" },
+    { name: "Xav", color: "#2ECAD1" },
     { name: "Fyl",    color: "#564304" },
   ];
 
@@ -467,7 +467,7 @@
             bar.style.left = (sf * 100) + '%'; // Position de départ en %
             bar.style.width = ((ef - sf) * 100) + '%'; // Longueur de la barre en %
             bar.style.background = member.color;
-            
+
             const startHour = shift.start.split(':')[0] + 'h'; // Transforme "08:00" en "08h"
             const endHour = shift.end.split(':')[0] + 'h';     // Transforme "16:00" en "16h"
             bar.textContent = `${member.name} ${startHour}–${endHour}`;
