@@ -77,10 +77,6 @@
     .tl-hours { display: flex; justify-content: space-between; margin: 2px 0 6px; }
     .tl-hour-label { font-size: 10px; color: #aaa; }
 
-    /* ── Section "Disponibles ensemble" ── */
-    .avail-label { font-size: 11px; color: #888; margin: 4px 0 3px; }
-    .avail-track { position: relative; height: 18px; background: #f0f2f7; border-radius: 6px; overflow: hidden; margin-bottom: 14px; }
-
     /* ── Texte quand aucun quart n'est enregistré pour un jour ── */
     .empty-day { font-size: 12px; color: #bbb; margin-bottom: 12px; }
 
@@ -488,47 +484,6 @@
         });
         block.appendChild(hoursDiv);
 
-        // ── CALCUL DES DISPONIBILITÉS ENSEMBLE (Superpositions de quarts) ──
-        const availLabel = document.createElement('p');
-        availLabel.className = 'avail-label';
-        availLabel.textContent = 'Disponibles ensemble :';
-        block.appendChild(availLabel);
-
-        const availTrack = document.createElement('div');
-        availTrack.className = 'avail-track';
-
-        // On découpe la journée en 48 blocs de 30 minutes
-        const SLOTS = 48;
-        const counts = new Array(SLOTS).fill(0);
-
-        // Pour chaque membre présent, on ajoute "+1" dans les cases de 30 minutes où il travaille
-        shifts.forEach(({ shift }) => {
-          const sf = timeToFrac(shift.start);
-          const ef = timeToFrac(shift.end);
-          if (sf !== null && ef !== null) {
-            for (let i = Math.round(sf * SLOTS); i < Math.round(ef * SLOTS); i++) {
-              counts[i]++;
-            }
-          }
-        });
-
-        const maxCount = Math.max(...counts);
-
-        // Dessine la barre de présence commune (plus le bleu est foncé, plus il y a de monde)
-        for (let i = 0; i < SLOTS; i++) {
-          if (!counts[i]) continue;
-
-          let j = i;
-          // Regroupe les blocs consécutifs qui ont exactement le même nombre de personnes
-          while (j < SLOTS && counts[j] === counts[i]) j++;
-
-          const bar = document.createElement('div');
-          bar.style.cssText = `position:absolute;top:0;height:100%;left:${i/SLOTS*100}%;width:${(j-i)/SLOTS*100}%;background:rgba(47,79,143,${0.2+counts[i]/Math.max(maxCount,1)*0.7})`;
-          bar.title = `${counts[i]} personne(s)`; // Affiché au survol de la souris
-          availTrack.appendChild(bar);
-          i = j - 1; // Avance l'index de la boucle au prochain bloc disponible
-        }
-        block.appendChild(availTrack);
       }
       cv.appendChild(block);
     });
