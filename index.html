@@ -55,6 +55,8 @@
     .save-btn { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #2F4F8F; background: #2F4F8F; color: white; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; }
     .save-btn:hover { background: #1e3a6e; }
 
+
+
     /* ── Message de confirmation après sauvegarde ── */
     .save-msg { font-size: 12px; color: #58B77A; text-align: center; margin-top: 6px; display: none; }
 
@@ -118,6 +120,13 @@
       <p class="save-msg" id="save-msg">Sauvegardé !</p>
     </div>
   </div>
+
+<button class="save-btn" id="btn-save-shifts">✓ Appliquer toutes semaines</button>
+
+<button class="save-btn" id="btn-save-all-weeks" style="background: #4a5568; border-color: #4a5568; margin-top: 8px;">📋 Sauvegarder pour toutes les semaines</button>
+
+<p class="save-msg" id="save-msg">Sauvegardé !</p>
+
 
   <div id="panel-view" style="display:none">
     <div class="card">
@@ -350,6 +359,44 @@
   }
 
 
+  // Sauvegarde les quarts pour toutes les semaines disponibles :
+  async function saveShiftsToAllWeeks() {
+    if (!currentUser) return;
+    if (!confirm(`Voulez-vous copier cet horaire dans TOUTES les semaines de l'été pour ${currentUser} ? Cela écrasera vos données existantes.`)) return;
+
+    const wIdxActuel = parseInt(document.getElementById('week-select').value);
+    const weekStartActuel = WEEKS[wIdxActuel].start;
+    const templateData = {};
+
+    DAYS.forEach((_, di) => {
+      const dateKey = new Date(weekStartActuel);
+      dateKey.setDate(dateKey.getDate() + di);
+      const key = dateKey.toISOString().slice(0, 10);
+      const s = document.getElementById('s_' + key)?.value;
+      const e = document.getElementById('e_' + key)?.value;
+      if (s && e) templateData[di] = { start: s, end: e };
+    });
+
+    const promises = WEEKS.map(async (semaine, indexSemaine) => {
+      const weekData = {};
+      const weekStart = semaine.start;
+      DAYS.forEach((_, di) => {
+        const dateKey = new Date(weekStart);
+        dateKey.setDate(dateKey.getDate() + di);
+        const key = dateKey.toISOString().slice(0, 10);
+        if (templateData[di]) weekData[key] = { start: templateData[di].start, end: templateData[di].end };
+      });
+      return setDoc(doc(db, 'horaires', `${currentUser}_semaine_${indexSemaine}`), weekData);
+    });
+
+    await Promise.all(promises);
+    const msg = document.getElementById('save-msg');
+    msg.style.display = 'block';
+    setTimeout(() => msg.style.display = 'none', 2000);
+    initNames();
+  }
+
+
   // ==========================================
   // 4. LOGIQUE DE L'ONGLET "VUE COLLECTIVE" (TIMELINE)
   // ==========================================
@@ -515,6 +562,7 @@
   document.getElementById('week-select-view').onchange = () => renderView();
   document.getElementById('btn-save-shifts').onclick = () => saveShifts();
 
+  document.getElementById('btn-save-all-weeks').onclick = () => saveShiftsToAllWeeks();
 
   // ==========================================
   // 6. SYNCHRONISATION EN TEMPS RÉEL (FIREBASE)
