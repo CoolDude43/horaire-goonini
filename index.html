@@ -484,6 +484,12 @@
         });
         block.appendChild(hoursDiv);
 
+        // ── CALCUL DES DISPONIBILITÉS ENSEMBLE (Superpositions de quarts) ──
+        const availLabel = document.createElement('p');
+        availLabel.className = 'avail-label';
+        availLabel.textContent = 'Disponibles ensemble :';
+        block.appendChild(availLabel);
+
         const availTrack = document.createElement('div');
         availTrack.className = 'avail-track';
 
