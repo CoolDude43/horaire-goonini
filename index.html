@@ -484,6 +484,24 @@
         });
         block.appendChild(hoursDiv);
 
+        const availTrack = document.createElement('div');
+        availTrack.className = 'avail-track';
+
+        // On découpe la journée en 48 blocs de 30 minutes
+        const SLOTS = 48;
+        const counts = new Array(SLOTS).fill(0);
+
+        // Pour chaque membre présent, on ajoute "+1" dans les cases de 30 minutes où il travaille
+        shifts.forEach(({ shift }) => {
+          const sf = timeToFrac(shift.start);
+          const ef = timeToFrac(shift.end);
+          if (sf !== null && ef !== null) {
+            for (let i = Math.round(sf * SLOTS); i < Math.round(ef * SLOTS); i++) {
+              counts[i]++;
+            }
+          }
+        });
+
         const maxCount = Math.max(...counts);
 
         // Dessine la barre de présence commune (plus le bleu est foncé, plus il y a de monde)
