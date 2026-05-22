@@ -467,7 +467,11 @@
             bar.style.left = (sf * 100) + '%'; // Position de départ en %
             bar.style.width = ((ef - sf) * 100) + '%'; // Longueur de la barre en %
             bar.style.background = member.color;
-            bar.textContent = `${member.name} ${shift.start}–${shift.end}`;
+            
+            const startHour = shift.start.split(':')[0] + 'h'; // Transforme "08:00" en "08h"
+            const endHour = shift.end.split(':')[0] + 'h';     // Transforme "16:00" en "16h"
+            bar.textContent = `${member.name} ${startHour}–${endHour}`;
+
             track.appendChild(bar);
           }
           block.appendChild(track);
